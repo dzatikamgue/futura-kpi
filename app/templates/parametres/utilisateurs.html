@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "macros.html" import icon, vide, champ with context %}
+{% set nav = "utilisateurs" %}
+{% block title %}Comptes & accès{% endblock %}
+{% block breadcrumb %}<span class="sep">/</span><span class="crumb-mid">Administration</span><span class="sep crumb-mid">/</span><span aria-current="page">Comptes &amp; accès</span>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Comptes &amp; accès</h1><p>RH et Direction voient toutes les notes. Un collaborateur ne voit que ses N-1, les entités qu'il dirige et ses propres notes.</p></div>
+  <form class="page-head__actions" method="post" data-confirm="Créer un compte pour chaque N+1 et responsable qui n'en a pas encore ?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="creer_evaluateurs">
+    <button class="btn btn--secondary" type="submit">{{ icon('users') }} Créer les comptes des évaluateurs</button>
+  </form>
+</div>
+
+{% if identifiants %}
+<div class="card" style="margin-bottom:16px;border-color:var(--brand)">
+  <div class="card__head"><div><h2>Identifiants temporaires — à transmettre maintenant</h2>
+    <p>Ces mots de passe ne seront plus jamais affichés. Chaque utilisateur devra le changer à sa première connexion.</p></div></div>
+  <div class="table-wrap"><table class="table table--compact">
+    <thead><tr><th>Utilisateur</th><th>Identifiant</th><th>Mot de passe temporaire</th></tr></thead>
+    <tbody>{% for u, mdp in identifiants %}<tr><td>{{ u.nom_affiche }}</td><td><span class="code kbd-copy" title="Cliquer pour copier">{{ u.email }}</span></td><td><span class="code kbd-copy" title="Cliquer pour copier">{{ mdp }}</span></td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="card__foot small muted">Transmettez-les de préférence en main propre ou par un canal distinct de l'adresse de connexion (ex. SMS).</div>
+</div>
+{% endif %}
+
+<div class="grid grid-main">
+  <section class="card">
+    {% if comptes %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Utilisateur</th><th>Rôle</th><th class="hide-mobile">Dernière connexion</th><th>Statut</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+      {% for u in comptes %}
+      <tr {% if not u.actif %}style="opacity:.6"{% endif %}>
+        <td><div class="cell-main"><div class="avatar" aria-hidden="true">{{ u.employe.initiales if u.employe else u.email[:2]|upper }}</div>
+          <div><strong>{{ u.nom_affiche }}</strong><span>{{ u.email }}</span></div></div></td>
+        <td>
+          {% if u.id != current_user.id %}
+          <form method="post" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ u.id }}"><input type="hidden" name="action" value="role">
+            <label class="sr-only" for="role-{{ u.id }}">Rôle</label>
+            <select class="select select--sm" id="role-{{ u.id }}" name="role" data-autosubmit style="width:auto">
+              {% for k, l in roles.items() %}<option value="{{ k }}" {% if u.role == k %}selected{% endif %}>{{ l }}</option>{% endfor %}
+            </select></form>
+          {% else %}{{ u.role_libelle }} <span class="muted small">(vous)</span>{% endif %}
+        </td>
+        <td class="hide-mobile">{{ u.derniere_connexion|date_fr(True) }}</td>
+        <td>{% if not u.actif %}<span class="badge badge--plain">Désactivé</span>{% elif u.doit_changer_mdp %}<span class="badge badge--warn">1re connexion</span>{% else %}<span class="badge badge--ok">Actif</span>{% endif %}</td>
+        <td class="actions">
+          <form method="post" style="display:inline" data-confirm="Générer un nouveau mot de passe temporaire pour {{ u.email }} ?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ u.id }}"><input type="hidden" name="action" value="reinitialiser">
+            <button class="btn btn--ghost btn--sm" type="submit">Réinitialiser</button></form>
+          {% if u.id != current_user.id %}
+          <form method="post" style="display:inline" data-confirm="{{ 'Désactiver' if u.actif else 'Activer' }} le compte {{ u.email }} ?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ u.id }}"><input type="hidden" name="action" value="basculer">
+            <button class="btn btn--ghost btn--sm" type="submit">{{ "Désactiver" if u.actif else "Activer" }}</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}{{ vide("Aucun compte", "Créez les comptes des utilisateurs.", "key") }}{% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>Nouveau compte</h2></div>
+    <form class="card__body stack" method="post" data-validate data-loading>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="creer">
+      <div class="field"><label for="f-emp">Salarié</label>
+        <select class="select" id="f-emp" name="employe_id" {% if erreurs.get('employe_id') %}aria-invalid="true"{% endif %}>
+          <option value="">— Compte non lié (RH / Direction externe) —</option>
+          {% for e in sans_compte %}<option value="{{ e.id }}" {% if donnees.get('employe_id') == e.id|string %}selected{% endif %}>{{ e.nom_complet }}{{ " — " ~ e.email if e.email }}</option>{% endfor %}
+        </select>
+        <span class="hint">Lier le compte à la fiche permet de noter ses N-1 et de voir ses propres notes.</span>
+        {% if erreurs.get('employe_id') %}<span class="error">{{ erreurs.employe_id }}</span>{% endif %}</div>
+      {{ champ("email", "E-mail de connexion", donnees.get('email'), erreurs, "email", True, attrs='maxlength="160" autocomplete="off"') }}
+      <div class="field"><label for="f-role">Rôle<span class="req">*</span></label>
+        <select class="select" id="f-role" name="role" required>
+          {% for k, l in roles.items() %}<option value="{{ k }}" {% if donnees.get('role', 'collaborateur') == k %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <span class="hint">Choisissez « Collaborateur » pour les chefs de projet, chefs de service, conducteurs de travaux…</span></div>
+      <div class="form-actions" style="padding-top:8px"><button class="btn btn--primary" type="submit">Créer le compte</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

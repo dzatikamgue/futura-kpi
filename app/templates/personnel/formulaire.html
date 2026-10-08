@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "macros.html" import champ with context %}
+{% set nav = "personnel" %}
+{% block title %}{{ "Modifier " ~ employe.nom_complet if employe else "Nouveau salarié" }}{% endblock %}
+{% block breadcrumb %}<span class="sep">/</span><a class="crumb-mid" href="{{ url_for('personnel.liste') }}">Personnel</a><span class="sep crumb-mid">/</span><span aria-current="page">{{ employe.nom_complet if employe else "Nouveau" }}</span>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ "Modifier la fiche" if employe else "Nouveau salarié" }}</h1>
+  <p>Les champs marqués <span style="color:var(--danger)">*</span> sont obligatoires.{% if not employe %} Les affectations (département / projet, N+1) se définissent ensuite sur la fiche.{% endif %}</p></div></div>
+<form class="card" method="post" data-validate data-loading style="max-width:860px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card__body form-grid">
+    {{ champ("matricule", "Matricule", donnees.get('matricule'), erreurs, requis=True, aide="Identifiant unique, ex. FUT-104", attrs='maxlength="30" autocomplete="off"') }}
+    {{ champ("poste", "Poste / fonction", donnees.get('poste'), erreurs, attrs='maxlength="120"') }}
+    {{ champ("nom", "Nom", donnees.get('nom'), erreurs, requis=True, attrs='maxlength="80" autocomplete="family-name"') }}
+    {{ champ("prenom", "Prénom(s)", donnees.get('prenom'), erreurs, attrs='maxlength="80" autocomplete="given-name"') }}
+    {{ champ("email", "E-mail professionnel", donnees.get('email'), erreurs, "email", aide="Nécessaire pour créer un compte d'accès.", attrs='maxlength="160"') }}
+    {{ champ("telephone", "Téléphone", donnees.get('telephone'), erreurs, "tel", attrs='maxlength="40" placeholder="+237 6XX XX XX XX"') }}
+    {{ champ("date_embauche", "Date d'embauche", donnees.get('date_embauche'), erreurs, "date") }}
+  </div>
+  <div class="card__foot form-actions" style="padding-top:12px">
+    <a class="btn btn--ghost" href="{{ url_for('personnel.fiche', employe_id=employe.id) if employe else url_for('personnel.liste') }}">Annuler</a>
+    <button class="btn btn--primary" type="submit">Enregistrer</button>
+  </div>
+</form>
+{% endblock %}
